@@ -4,7 +4,8 @@
 
 - [x] What is high-performance computing (HPC)?
 - [x] What is SaaS?
-- [ ] What is cloud computing?
+- [x] What is cloud computing?
+- [ ] What is Kubernetes?
 
 * 所有云上提供的服务（云上 HPC 、SaaS 等）都有两个重要优势：**快速部署**和**按需付费**，前者可以减少开发周期，后者则可以减少开发所需的软硬件成本，包括无需支付大型计算机设备的成本和维护成本，以及根据流量的峰值和谷值来扩展或缩减容量。
 
