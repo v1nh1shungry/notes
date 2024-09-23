@@ -6,6 +6,7 @@
 	* `git push --delete <TARGET>`
 * 在 alias 中，在命令前添加 `!` 来运行外部命令；
 * `git clone --bare` 来克隆一个**裸仓库**，即只包含 `.git` ，不包含当前工作目录的仓库；
+* `git rev-parse` 可用于查看某个分支或者某段 SHA-1 简写所指向的完整 SHA 值；
 
 # `git diff`
 
@@ -41,9 +42,7 @@ $ git diff main...<BRANCH>
 * `git log --since=2.weeks` 列出最近两周的所有提交；
 * **`git log -S <STR>` 传说中的 pickaxe ！显示包含指定字符串的所有提交；**
 * `git log --no-merges` 可过滤掉合并提交；
-* `git log --decorate` 查看各个分支当前所指的提交；
-* `git log <BRANCH-A>..<BRANCH-B>` 只显示所有在 `<BRANCH-B>` 但不在 `<BRANCH-A>` 的提交；
-* `git log --not main` 查看当前分支上所有 `main` 分支尚未包含的提交；
+* `git log --abbrev-commit` 为 SHA-1 值生成简短且唯一的缩写，默认使用7个字符；
 
 # 标签
 
@@ -137,3 +136,58 @@ $ git merge FETCH_HEAD
 * `rerere` (reuse recorded resolution) 将记录解决合并冲突的修复方案，当下次遇到相似的合并冲突时，Git 将自动应用记录的修复方案而无需用户干预；
 * `git config --global rerere.enabled true` 启用 `rerere` 功能；
 * 在没有全局启用 `rerere` 时，执行 `git rerere` 将寻找当前任一冲突相关的修复方案并解决冲突；
+
+# `reflog`
+
+* `reflog` 用于记录**本地仓库**的 `HEAD` 和分支引用的指向历史；
+* 使用 `@{n}` 格式来引用 `git reflog` 中输出的提交记录；
+* `git log -g` 可输出对应的 `reflog` 信息；
+
+# 祖先引用
+
+* 在引用后添加 `^` 或 `~` 表示该引用的祖先引用；
+* 对于合并提交，可以在 `^` 添加数字来指明**哪一个父提交**，因为只有合并提交具有多个父提交；
+* `HEAD~2` 代表**父提交的父提交**；
+* `^` 和 `~` 的区别在于后面加数字的含义，`^` 是沿着合并提交的父提交横向遍历，而 `~` 则沿着提交历史纵向遍历；
+
+# 提交区间
+
+* 双点
+	* 在两个引用之间添加 `..` 表示在后者而不在前者的提交，当后者留空时默认为 `HEAD`；
+	* 常用场景
+		* `git log experiment..main` 在 `rebase` 到 `main` 分支最新进度前查看即将合并的内容；
+		* `git log origin/main..HEAD` 在推送分支前查看即将推送的内容；
+* 多点
+	* 双点语法只能指定两个引用；
+	* 以下三条命令等价
+```bash
+$ git log refA..refB
+$ git log ^refA refB
+$ git log refB --not refA
+```
+* 三点
+	* 在两个引用之间添加 `...` 表示被两个引用**之一**包含但又不被两者同时包含的提交；
+	* `--left-right` 参数将显示每个提交属于哪一侧的分支；
+
+# 交互式暂存
+
+* `git add -i` 可进入交互式暂存模式，在希望将大量修改分割成若干提交、暂存文件的部分修改时很方便；
+	* `update` 暂存，`revert` 取消暂存；
+	* `diff` 查看**已暂存**的修改（类似 `git diff --cached`）；
+	* 使用 `patch` 命令来暂存文件的部分修改；
+* 也可使用 `git add -p` 来进行文件部分暂存，与之相对的可以使用 `git reset -p` 来部分重置，`git checkout -p` 来部分 `checkout` 以及 `git stash -p` 来部分 `stash` 文件；
+
+# `git stash`
+
+* `git stash apply` 将应用栈顶的修改，而 `git stash pop` 则会在应用后将修改从栈中丢弃；
+* `git stash apply` **不会重新暂存已暂存的修改**，使用 `--index` 来尝试重新应用暂存；
+* `git stash --keep-index` 将只 `stash` 未暂存的修改，保留已暂存的内容；
+* `git stash -u` 来 `stash` 未跟踪的文件，`git stash -a` 来 `stash` 已忽略的文件；
+* `git stash branch` 用于从进行 `stash` 时所在的提交中创建新的分支，在新分支中应用 `stash` 的修改，并从栈中丢弃修改，在重新应用 `stash` 的修改可能导致冲突时很方便；
+
+# 清理工作目录
+
+* `git clean` 将删除所有**未被跟踪和未被忽略**的文件，`-d` 参数将删除空的子目录；
+* **推荐在运行该命令前执行 `git stash -a`，避免误删除的文件无法恢复**；
+* `git clean -n` 执行一次 dry-run ，仅输出该命令将删除哪些文件而不实际执行；
+* `git clean -x` 将额外删除已忽略的文件；
