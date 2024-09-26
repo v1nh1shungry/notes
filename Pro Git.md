@@ -43,6 +43,7 @@ $ git diff main...<BRANCH>
 * **`git log -S <STR>` 传说中的 pickaxe ！显示包含指定字符串的所有提交；**
 * `git log --no-merges` 可过滤掉合并提交；
 * `git log --abbrev-commit` 为 SHA-1 值生成简短且唯一的缩写，默认使用7个字符；
+* `git log --show-signature` 查看并验证签名；
 
 # 标签
 
@@ -191,3 +192,10 @@ $ git log refB --not refA
 * **推荐在运行该命令前执行 `git stash -a`，避免误删除的文件无法恢复**；
 * `git clean -n` 执行一次 dry-run ，仅输出该命令将删除哪些文件而不实际执行；
 * `git clean -x` 将额外删除已忽略的文件；
+
+# 签署认证
+
+* `git tag -s <NAME> -m <MESSAGE>` 使用 `-s` 替代 `-a` 即可签署一条新的标签；
+* `git tag -v <NAME>` 验证签名，签署者的公钥需要在 GPG 的 key-list 中；
+* `git commit` 和 `git merge` 可使用 `-S` 签署提交；
+* `git merge` 和 `git pull` 可使用 `--verify-signatures` 来验证签名并拒绝没有携带可信签名的提交；
