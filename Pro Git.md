@@ -44,6 +44,7 @@ $ git diff main...<BRANCH>
 * `git log --no-merges` 可过滤掉合并提交；
 * `git log --abbrev-commit` 为 SHA-1 值生成简短且唯一的缩写，默认使用7个字符；
 * `git log --show-signature` 查看并验证签名；
+* **`git log -L :foobar:foobar.c` 可查看 `foobar.c` 文件中的 `foobar` 函数的变更历史**；
 
 # 标签
 
@@ -63,7 +64,7 @@ $ git archive main --prefix='project/' | gzip > $(git describe).tar.gz
 # 可指定创建一个 zip 压缩包
 $ git archive main --prefix='project/' --format=zip > $(git describe).zip
 ```
-* `git shortlog` 可生成简易的 changelog 文档，包括所有提交的概要信息，按作者分组；
+* `git shortlog` 可生成简易的 changelog 文档，包括所有提交的概要信息，按作者分组；`-sne` 仅显示作者名字、邮箱和提交数量；
 
 # 分支
 
@@ -199,3 +200,46 @@ $ git log refB --not refA
 * `git tag -v <NAME>` 验证签名，签署者的公钥需要在 GPG 的 key-list 中；
 * `git commit` 和 `git merge` 可使用 `-S` 签署提交；
 * `git merge` 和 `git pull` 可使用 `--verify-signatures` 来验证签名并拒绝没有携带可信签名的提交；
+
+# `git grep`
+
+* `-n` 输出匹配行的行号；
+* `-p` 显示每一个匹配项所在的上下文函数；
+* 使用 `--and` 来组合多个查询字符串，确保多个匹配出现在同一文本行；
+* 输出将按照所在文件分组，`--heading` 将在分组前输出文件名，`--break` 将输出额外的空行分割各个分组；
+
+# 修改历史提交
+
+* `git commit --amend --no-edit` 可跳过编辑提交日志；
+* `git commit --amend` 只能修改最近一次提交，若需要修改更远的提交，需使用 `git rebase -i`
+	* 假设需要修改最近的第三条提交，则需要指定需要修改的提交的父提交，即 `git rebase -i HEAD~3`;
+	* Git 将提供一个即将运行的脚本，**注意：脚本显示的提交序列从上到下依次从旧到新，因为 Git 即将回溯到 `HEAD~3` 并依次按照提交前的命令重新将各提交应用**。通过修改该脚本来指定需要的操作，将第三条提交的命令修改为 `edit`；
+	* 退出编辑后，Git 将回溯到 `HEAD~3`，并开始执行脚本的命令。将应用第三次提交后暂停，此时就可以通过 `git commit --amend` 来修改该提交；
+* **`git rebase -i <COMMIT>` 的本质就是用户编辑 Git 提供的脚本，在用户编辑完后，回到 `<COMMIT>` ，并依次执行脚本上的命令，重新将脚本上的提交应用，因此删除掉脚本上的一行提交就会删除掉这个提交，调换脚本上提交的顺序就会调换两个提交的应用顺序**；
+* 拆分提交
+```bash
+# 拆分最近的第三次提交
+$ git rebase -i HEAD~3
+# 将最近的第三次提交的命令修改为 edit
+$ git reset HEAD^
+# 暂存需要提交的修改
+$ git commit -m "first split commit"
+# 暂存需要提交的修改
+$ git commit -m "second split commit"
+$ git rebase --continue
+```
+* **谨慎使用 `git filter-branch`**，考虑使用 [git-filter-repo](https://github.com/newren/git-filter-repo)
+	* `git filter-branch --tree-filter 'rm -f dummy.txt' HEAD` 从所有提交中删除误提交的文件，`--tree-filter` 将在 `checkout` 每一个提交后运行指定的命令然后重新提交，可使用 `--all` 在所有分支上运行；
+	* `git filter-branch --subdirectory <SUBDIR> HEAD` 将子目录作为新的根目录
+	* 修改邮箱地址
+```bash
+git filter-branch --commit-filter ' \
+  if [ "$GIT_AUTHOR_EMAIL" = "hongyuanjing@scutech.com" ]; \
+  then \
+    GIT_AUTHOR_NAME="Yuanjing Hong"; \
+    GIT_AUTHOR_EMAIL="v1nh1shungry@outlook.com"; \
+    git commit-tree "$@"; \
+  else \
+    git commit-tree "$@"; \
+  fi' HEAD
+```
