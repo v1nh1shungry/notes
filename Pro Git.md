@@ -1,6 +1,5 @@
 * `git status -s` 简洁展示仓库当前状态；
 * `git rm --cached` 将文件从 Git 仓库中删除，但在磁盘中保留；
-* `git reset HEAD <FILE>` 等价于 `git restore --staged <FILE>`；
 * 删除远程分支/标签的两种方式：
 	*  `git push origin :<TARGET>`
 	* `git push --delete <TARGET>`
@@ -19,11 +18,6 @@ Git 还提供了等价的便捷方式
 ```bash
 $ git diff main...<BRANCH>
 ```
-
-# `git checkout`
-
-* `git checkout <FILE>` 可还原已修改的文件，在新版本的 Git 中，添加了 `git restore` 命令用于接管这部分功能；
-* `git checkout <BRANCH>` 可切换分支，在新版本的 Git 中，添加了 `git switch` 命令用于接管这部分功能；
 
 # `.gitignore`
 
@@ -243,3 +237,40 @@ git filter-branch --commit-filter ' \
     git commit-tree "$@"; \
   fi' HEAD
 ```
+
+# `reset` 和 `checkout`
+
+* Git 维护三个状态：`HEAD` 、索引和工作区，分别对应分支、暂存区和当前工作目录的文件；通过 `git add` ，将工作区对应文件复制到索引，通过 `git commit` ，将当前索引的状态生成为一个快照，将 `HEAD` 指向该快照；`git diff` 将输出工作区状态和索引状态的差异，`git diff --cached` 将输出索引状态和 `HEAD` 指向的快照的差异；
+* `git reset <COMMIT>` 将改变 `HEAD` 的指向
+	* `git reset --soft HEAD^` 保持索引与工作区的状态不变，将 `HEAD` 指向上一次提交，因此效果就是将当前提交撤销，而当前提交做出的修改依然在暂存区中；
+	* `git reset --mixed` 在 `git reset --soft` 基础上，还将用 `HEAD` 指向的快照的内容更新索引，因此效果就是将当前提交撤销，并将提交做出的修改取消暂存；
+	* `git reset --hard` 在 `git reset --mixed` 基础上，**强制覆盖工作目录中的文件，是会销毁修改的危险操作**；
+	* 压缩提交
+```bash
+# 假设有 A - B - C 三个提交，希望保留 A 和 C 的提交历史
+# 当前 HEAD 指向 C
+# 切换到希望压缩的提交的父提交
+$ git reset --soft HEAD~2
+# 当前 HEAD 指向 A，而索引和工作区的状态仍然是 C 的状态
+# 因此再直接提交即可将 B 的历史压缩掉
+$ git commit
+```
+* `git reset <PATH>` 不会改变 `HEAD` 的指向，而是会将 `HEAD` 指向的快照内容更新索引，因此效果就是取消暂存文件，在新版本中添加了 `git restore --staged` 命令旨在替代 `git reset` 的这部分功能；
+* `git checkout <COMMIT>` 的效果与 `git reset --hard <COMMIT>` 类似，但是前者是**安全的**，不会丢失已做出的更改。此外，**`git checkout` 只会修改 `HEAD` 的指向，而 `git reset` 将同步修改分支的指向**，在新版本中添加了 `git switch` 用于替代 `git checkout` 的这部分功能；
+* `git checkout <PATH>` 的效果类似 `git reset --hard <PATH>`，除了用 `HEAD` 指向的快照内容更新索引之外，还将更新工作目录的文件，因此效果就是撤销文件修改，在新版本中添加了 `git restore` 来替代 `git checkout` 的这部分功能；
+
+# 合并冲突
+
+* 合并策略可以带有参数
+	* `-Xignore-all-space` 将在合并时**完全忽略**空白修改，而 `-Xignore-space-change` 将一个空白字符和多个连续空白字符视作等价；
+	* `-Xours` 或 `-Xtheirs` 将在合并出现冲突时直接选择一边的修改并丢弃另一边；
+* 在一次三路合并中，`:1:<FILE>` 是共同的祖先版本（即两条分支的分叉点），`:2:<FILE>` 是当前分支的版本（ours），`:3:<FILE>` 是即将合并的版本（theirs），可以使用 `git show` 来查看这些版本的内容；
+	* `git ls-files -u` 来列出未合并的文件和对应的 SHA-1 值，`:1:<FILE` 只是查找对应 SHA-1 值的语法；
+* `git diff --ours` 可在 `git add` 前查看冲突解决后的结果与当前分支的差异，`--theirs` 则比较与即将合并如的分支的差异，而 `--base` 则比较与共同的祖先版本的差异；
+* 在合并冲突时，默认的合并冲突标记只显示 ours 和 theirs 的上下文，可使用 `git checkout --conflict=diff3 <FILE>` 替换合并标记，添加共同祖先版本的上下文；
+* 在合并冲突中，可以使用 `git checkout --ours` 或 `--theirs` 快速选择其中一个版本的修改，丢弃另一个版本；
+* `git log --oneline --left-right --merge -p` 可查看合并冲突中任何一边接触了冲突文件的提交；
+* `git log --cc -p` 可查看合并提交是如何解决冲突的；
+* `git revert -m 1 HEAD` 来还原一个合并提交，一个合并提交具有两个父节点，`-m 1` 参数表示属于当前分支的父节点的内容，撤销由合并的分支引入的修改；使用这种方法撤销合并，当需要再次合并相同分支时，需要**先将撤销合并提交时生成的提交撤销 `git revert <REVERT_COMMIT>`，再进行合并**；
+* `git merge -s ours` 将进行一次**假合并**，生成一次以两边分支为父提交的合并提交，但不合并入任何修改，即合并前后代码没有变化；
+> 当再次合并时从本质上欺骗 Git 认为那个分支已经合并过经常是很有用的。 例如，假设你有一个分叉的 `release` 分支并且在上面做了一些你想要在未来某个时候合并回 `master` 的工作。 与此同时 `master` 分支上的某些 bugfix 需要向后移植回 `release` 分支。 你可以合并 bugfix 分支进入 `release` 分支同时也 `merge -s ours` 合并进入你的 `master` 分支 （即使那个修复已经在那儿了）这样当你之后再次合并 `release` 分支时，就不会有来自 bugfix 的冲突。
