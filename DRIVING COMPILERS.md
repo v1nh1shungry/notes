@@ -22,31 +22,30 @@
 # `binutils`
 
 * `binutils` 列表
-```
-Name      |  Description
---------------------------------------------------------------
-ld        |  The GNU linker.
-as        |  The GNU assembler.
---------------------------------------------------------------
-addr2line |  Converts addresses into filenames and line numbers.
-ar        |  Creates, modifies and extracts from archives.
-c++filt   |  Filter to demangle encoded C++ symbols.
-dlltool   |  Creates files for building and using DLLs.
-gold      |  New, faster, ELF only linker, 5x faster than ld.
-gprof     |  Displays profiling information.
-ldd       |  List libraries imported by object file.
-nlmconv   |  Converts object code into an NLM.
-nm        |  Lists symbols from object files.
-objcopy   |  Copies and translates object files.
-objdump   |  Displays information from object files.
-ranlib    |  Generates an index to the contents of an archive.
-readelf   |  Displays information from any ELF format object file.
-size      |  Lists the section sizes of an object or archive file.
-strings   |  Lists printable strings from files.
-strip     |  Discards symbols.
-windmc    |  Windows compatible message compiler.
-windres   |  Compiler for Windows resource files.
-```
+
+| Name      | Description                                           |
+|-----------|-------------------------------------------------------|
+| ld        | The GNU linker.                                       |
+| as        | The GNU assembler.                                    |
+| addr2line | Converts addresses into filenames and line numbers.   |
+| ar        | Creates, modifies and extracts from archives.         |
+| c++filt   | Filter to demangle encoded C++ symbols.               |
+| dlltool   | Creates files for building and using DLLs.            |
+| gold      | New, faster, ELF only linker, 5x faster than ld.      |
+| gprof     | Displays profiling information.                       |
+| ldd       | List libraries imported by object file.               |
+| nlmconv   | Converts object code into an NLM.                     |
+| nm        | Lists symbols from object files.                      |
+| objcopy   | Copies and translates object files.                   |
+| objdump   | Displays information from object files.               |
+| ranlib    | Generates an index to the contents of an archive.     |
+| readelf   | Displays information from any ELF format object file. |
+| size      | Lists the section sizes of an object or archive file. |
+| strings   | Lists printable strings from files.                   |
+| strip     | Discards symbols.                                     |
+| windmc    | Windows compatible message compiler.                  |
+| windres   | Compiler for Windows resource files.                  |
+
 * 利用 `readelf` 读取程序入口地址，再使用 `nm` 找到入口符号
 ```bash
 $ readelf -h main | grep Entry

@@ -33,6 +33,25 @@ $ git diff main...<BRANCH>
 # `git log`
 
 * `git log --pretty=format:"<FORMAT>"` 可指定 `git log` 显示的提交信息格式；
+
+| 选项  | 说明                                          |
+|-------|-----------------------------------------------|
+| `%H`  | 提交的完整哈希值                              |
+| `%h`  | 提交的简写哈希值                              |
+| `%T`  | 树的完整哈希值                                |
+| `%t`  | 树的简写哈希值                                |
+| `%P`  | 父提交的完整哈希值                            |
+| `%p`  | 父提交的简写哈希值                            |
+| `%an` | 作者名字                                      |
+| `%ae` | 作者的电子邮件地址                            |
+| `%ad` | 作者修订日期（可以用 --date=选项 来定制格式） |
+| `%ar` | 作者修订日期，按多久以前的方式显示            |
+| `%cn` | 提交者的名字                                  |
+| `%ce` | 提交者的电子邮件地址                          |
+| `%cd` | 提交日期                                      |
+| `%cr` | 提交日期（距今多长时间）                      |
+| `%s`  | 提交说明                                      |
+
 * `git log --since=2.weeks` 列出最近两周的所有提交；
 * **`git log -S <STR>` 传说中的 pickaxe ！显示包含指定字符串的所有提交；**
 * `git log --no-merges` 可过滤掉合并提交；
@@ -274,3 +293,83 @@ $ git commit
 * `git revert -m 1 HEAD` 来还原一个合并提交，一个合并提交具有两个父节点，`-m 1` 参数表示属于当前分支的父节点的内容，撤销由合并的分支引入的修改；使用这种方法撤销合并，当需要再次合并相同分支时，需要**先将撤销合并提交时生成的提交撤销 `git revert <REVERT_COMMIT>`，再进行合并**；
 * `git merge -s ours` 将进行一次**假合并**，生成一次以两边分支为父提交的合并提交，但不合并入任何修改，即合并前后代码没有变化；
 > 当再次合并时从本质上欺骗 Git 认为那个分支已经合并过经常是很有用的。 例如，假设你有一个分叉的 `release` 分支并且在上面做了一些你想要在未来某个时候合并回 `master` 的工作。 与此同时 `master` 分支上的某些 bugfix 需要向后移植回 `release` 分支。 你可以合并 bugfix 分支进入 `release` 分支同时也 `merge -s ours` 合并进入你的 `master` 分支 （即使那个修复已经在那儿了）这样当你之后再次合并 `release` 分支时，就不会有来自 bugfix 的冲突。
+
+# `git blame`
+
+* `git blame` 的输出中，开头带有 `^` 标记的行代表该行自该文件第一次提交后从未修改；
+* `git blame -C` 将尝试找出文件中从别的地方复制过来的代码片段的出处；
+
+# 二分查找
+
+* 手动流程
+	1. `git bisect start` 开始进行二分查找；
+	2. `git bisect bad` 标记目前所在的提交有问题；
+	3. `git bisect good <COMMIT>` 标记已知的最后一次正常提交；
+	4. Git 将 `checkout` 至中间的提交，测试当前提交是否正常，并根据结果执行 `git bisect good/bad`；
+	5. 重复执行上一步直至 Git 找出出问题的提交；
+	6. `git bisect reset` 将重置 `HEAD` 到最开始的位置；
+* 当有工具脚本能帮助判断当前提交是否正常时，可使用自动流程
+	1. `git bisect start <BAD_COMMIT> <GOOD_COMMIT>` 设定不正常提交到正常提交的范围；
+	2. `git bisect run test.sh` Git 将自动在每个 `checkout` 的提交中运行 `test.sh`；
+
+# 子模块
+
+* `git submodule add <URL> [<PATH>]` 添加子模块，默认将子模块放在与子项目同名的目录中，可使用可选的路径参数指定路径；
+* 克隆含有子模块的仓库
+	* 克隆仓库后，执行 `git submodule init` 初始化本地配置文件，再执行 `git submodule update` 抓取子模块的数据并 `checkout` 到父项目指定的提交；
+	* `git clone --recurse-submodules` 自动初始化并更新子模块，包括嵌套子模块；如果在克隆时忘记添加 `--recurse-submodules` 参数，可以执行 `git submodule update --init`，如果有嵌套子模块，则还要加上 `--recursive` 参数；
+* `git diff --submodule` 可 pretty-print 子模块的更新情况，包括更新的提交列表，可将 `diff.submodule` 设置为 `log` 来作为默认行为而不需要添加 `--submodule` 参数；
+* `git submodule update --remote` 自动进入子模块并更新，更新跟踪的分支由 `.gitmodules`（公共的）或 `.git/config`（本地的）中的 `submodule.<SUBMODULE>.branch` 决定；
+* 设置 `status.submodulesummary` 为 1 可在 `git status` 显示子模块的更改摘要；
+* 更新含有子模块的仓库
+	* `git pull` 会递归抓取子模块的更改，但**不会更新**子模块，需要再运行 `git submodule update --init --recursive`；
+	* `git pull --recursive-submodules` 将在拉取后自动更新子模块；可以设置 `submodule.recurse` 为 `true` 来将其作为默认行为；
+* 当子模块的 URL 改变时
+```bash
+# 更新本地配置中的子模块 URL
+$ git submodule sync --recursive
+$ git submodule update --init --recursive
+```
+* 在子模块中工作
+	* 更新子模块时，Git 将自动 `checkout` 到指定的提交，处于 `HEAD` 分离的状态，在这种情况下在子模块中进行的工作很容易丢失，需要先 `checkout` 到工作分支中；
+	* 在更新子模块时，使用 `git submodule update --remote --merge` ，Git 将自动抓取更新并将更新合并入当前所在的分支中；
+	* 当本地子模块提交了一些修改，而子模块上游也有修改时，需要运行 `git submodule update --remote --rebase` 来将上游修改并入本地；
+	* 如果忘记添加 `--merge` 或者 `--rebase`，Git 会再次将子模块 `checkout` 至指定提交，只需再 `checkout` 至工作分支即可，工作分支上已提交的修改不会丢失，然后再手动合并即可；
+	* 如果子模块中还有未提交的修改，子模块更新将只抓取更新而不尝试合并，直接终止更新；
+	* 当子模块有本地修改但尚未提交时，该改动仅在本地可见，其他人在拉取项目时将因无法拉取子模块更新而无法更新；可使用 `git push --recurse-submodules=check` 在推送父项目时检查所有子模块是否含有未推送的更改；`git push --recurse-submodules=on-demand` 则在推送时尝试推送所有子模块中未推送的更改；可将 `push.recurseSubmodules` 设置为对应值；
+	* 当子模块的历史已经分叉并且在父项目中分别提交到了分叉的分支上且存在冲突时，`git pull` 将发生合并冲突
+```bash
+$ cd DbConnector
+# 获取试图合并的两个分支的提交 SHA-1 值
+$ git diff
+diff --cc DbConnector
+index eb41d76,c771610..0000000
+--- a/DbConnector
++++ b/DbConnector
+# eb41d76 是本地分支所在的提交，c771610 是尝试合并入的分支所在的提交
+# 手动创建对应分支
+$ git branch try-merge c771610
+# 合并
+$ git merge try-merge
+# 解决冲突
+$ git commit
+# 回到父项目
+$ cd ..
+# 提交合并
+$ git add DbConnector
+$ git commit
+```
+* `git submodule foreach '<COMMAND>'` 遍历每一个子模块并运行指定命令；
+* `git checkout` 在切换分支时，默认不会更新子模块，可添加 `--recursive-submodules` 参数在切换分支时自动将子模块更新到正确的状态；
+* 将子目录转换为子模块
+	* 需要先取消跟踪子目录，再添加子模块；
+	* 假设在当前分支下进行了转换工作，在切换回尚为子目录的分支时会出错，可使用 `git checkout -f` 强制切换，**注意会覆盖未提交的修改**；再切换回已转换的分支时，子模块目录为空，需要到子模块目录运行 `git checkout .` 来恢复文件；
+
+# 打包
+
+* `git bundle create repo.bundle HEAD main` 将 `main` 分支打包为 `repo.bundle` 文件，**注意添加 `HEAD` 引用标注 `checkout` 的位置**；
+* `git clone repo.bundle repo` 从 Git 包中克隆出仓库，如果在打包时没有指定 `HEAD`，需要使用 `-b main` 指定要 `checkout` 的分支；
+* `git bundle create commits.bundle main ^origin/main` 将本地 `main` 分支中添加的提交打包；
+* `git bundle verify` 检查是否为合法的 Git 包，是否拥有共同的祖先；
+* `git bundle list-heads` 可查看 Git 包中的可导入的分支；
+* `git fetch ../commits.repo feature1:feature1` 从 Git 包中导入 `feature1` 分支；
