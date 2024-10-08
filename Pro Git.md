@@ -6,6 +6,7 @@
 * 在 alias 中，在命令前添加 `!` 来运行外部命令；
 * `git clone --bare` 来克隆一个**裸仓库**，即只包含 `.git` ，不包含当前工作目录的仓库；
 * `git rev-parse` 可用于查看某个分支或者某段 SHA-1 简写所指向的完整 SHA 值；
+* `git apply` 和 `git rebase`在添加 `--whitespace=warn` 参数时，当准备应用的补丁或提交存在空白问题时可发出警告，而 `--whitespace=fix` 将自动修复空白问题；
 
 # `git diff`
 
@@ -373,3 +374,61 @@ $ git commit
 * `git bundle verify` 检查是否为合法的 Git 包，是否拥有共同的祖先；
 * `git bundle list-heads` 可查看 Git 包中的可导入的分支；
 * `git fetch ../commits.repo feature1:feature1` 从 Git 包中导入 `feature1` 分支；
+
+# 拆分历史
+
+假设需要将拥有5个提交的分支拆分成两条历史，提交1~4作为历史分支，提交4~5作为新版分支。
+
+1. `git branch history <COMMIT-4>` 创建历史分支 `history`；
+2. 从拆分点（第四个提交）的祖先（第三个提交）处创建新的提交树，并将提交4~5 `rebase` 到新的提交树上；
+```bash
+$ echo <MESSAGE> | git commit-tree <COMMIT-3>^{tree}
+622e88e9cbfbacfb75b5279245b9fb38dfea10cf
+$ git rebase --onto 622e88 <COMMIT-3>
+```
+此时，新版分支上将有**3个提交**。当需要合并新版分支和历史分支时，
+```bash
+$ git replace <NEW-COMMIT-4> <OLD-COMMIT-4>
+```
+
+**TODO: 感觉没什么用，而且也不太理解，详情可参考[原文](https://git-scm.com/book/zh/v2/Git-%e5%b7%a5%e5%85%b7-%e6%9b%bf%e6%8d%a2)。**
+
+# 属性
+
+* 可在当前目录下的 `.gitattributes` 文件中设置，也可以在 `.git/info/attributes` 中进行设置；
+* 将 `xxx` 文件视作二进制文件
+```gitattributes
+*.xxx binary
+```
+此时 `git show` 、`git diff` 将不会比较该类文件的变化，也不会尝试修正回车换行等问题；
+* 指定用于比较特定格式的命令。假设有脚本 `docx2txt` 可将 `docx` 文档转换为文本格式，可以先将该脚本指定为比较 `word` 时转换文本的程序
+```bash
+$ git config diff.word.textconv docx2txt
+```
+再在 `.gitattributes` 中指定 `.docx` 文件使用 `word` 规则来比较
+```gitattributes
+*.docx diff=word
+```
+* 自定义过滤器
+	* `*.cpp filter=format` 设置 C++ 文件的过滤器为 `format`；
+	* 设置过滤器 `format` 的 `smudge` 和 `clean`。当文件被 `checkout` 时，`smudge` 将会被用来处理文件；当文件被暂存时，`clean` 将会被用来处理文件。这里实现的效果是在暂存时自动格式化代码，**注意磁盘上的文件将保持不变**
+```bash
+$ git config filter.format.clean clang-format
+$ git config filter.format.smudge cat
+```
+* 在 `git archive` 时排除 `test/` 文件夹
+```gitattributes
+test/ export-ignore
+```
+* 在 `git archive` 时自动将指定文件中的格式化串展开，规则与 `git log` 的格式串规则相同；
+```gitattributes
+<FILE> export-subst
+```
+* 为特定文件指定合并策略。为 `foobar.cpp` 文件指定合并策略：当合并冲突时，直接选择本分支的版本。先为该文件指定合并策略为 `ours`
+```gitattributes
+main.cpp merge=ours
+```
+再定义虚拟合并策略 `ours`
+```bash
+$ git config merge.ours.driver true
+```
