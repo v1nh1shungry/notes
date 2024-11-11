@@ -7,6 +7,7 @@
 * `git clone --bare` 来克隆一个**裸仓库**，即只包含 `.git` ，不包含当前工作目录的仓库；
 * `git rev-parse` 可用于查看某个分支或者某段 SHA-1 简写所指向的完整 SHA 值；
 * `git apply` 和 `git rebase`在添加 `--whitespace=warn` 参数时，当准备应用的补丁或提交存在空白问题时可发出警告，而 `--whitespace=fix` 将自动修复空白问题；
+* [命令速查表](https://git-scm.com/book/zh/v2/%e9%99%84%e5%bd%95-C:-Git-%e5%91%bd%e4%bb%a4-%e8%ae%be%e7%bd%ae%e4%b8%8e%e9%85%8d%e7%bd%ae)；
 
 # `git diff`
 
@@ -59,6 +60,7 @@ $ git diff main...<BRANCH>
 * `git log --abbrev-commit` 为 SHA-1 值生成简短且唯一的缩写，默认使用7个字符；
 * `git log --show-signature` 查看并验证签名；
 * **`git log -L :foobar:foobar.c` 可查看 `foobar.c` 文件中的 `foobar` 函数的变更历史**；
+* `git log --name-only` 可列出提交中修改的文件；
 
 # 标签
 
@@ -432,3 +434,81 @@ main.cpp merge=ours
 ```bash
 $ git config merge.ours.driver true
 ```
+
+# Hook
+
+* 客户端
+	* `pre-commit` 在运行 `git commit` 时执行，用于检查提交的内容是否有效，如代码格式化风格检查；
+	* `prepare-commit-msg` 用于自定义为合并提交、压缩提交和修订提交等自动生成默认的提交信息；
+	* `commit-msg` 在提交信息输入完毕后执行，用于在最终提交前验证项目状态或提交信息。
+	* `post-commit` 在提交完成后运行，一般用于通知；
+	* `pre-rebase` 在 `rebase` 前执行，返回非零值可终止 `rebase` ，可用于禁止对已 push 的提交进行 `rebase`；
+	* `post-checkout` 在 `git checkout` 成功后执行，可用于在 `checkout` 后自动生成文档等操作；
+
+# Git 内部原理
+
+* 新初始化的 `.git` 目录的典型结构如下
+	* `config` 储存项目特有的配置选项的配置文件；
+	* `description` 仅供 GitWeb 使用；
+	* `HEAD` 文件指向当前 `checkout` 的分支；
+	* `hooks` 目录存放客户端或服务端的 [hook 脚本](#Hook)；
+	* `info` 目录包含一个存放不希望被记录在 `.gitignore` 中的模式的文件；
+	* `objects` 目录存储项目的所有数据内容；
+	* `refs` 目录存放所有指向信息（分支、远程仓库和标签等）和提交对象的指针；
+	* `index` 文件用于保存暂存区的信息；
+```bash
+$ ls -F1
+config
+description
+HEAD
+hooks/
+info/
+objects/
+refs/
+```
+* Git 是一个 content-addressable 文件系统。Git 的核心部分是一个简单的 KV 存储，可以向 Git 仓库插入任何形式的内容，它将会返回一个唯一的 key，通过该 key 可随时再次取回内容；
+	* `git hash-object` 底层命令可用于存储数据并返回对应 Git 对象的 key；
+	* `git cat-file` 用于取出输入的 key 对应的 Git 对象存储的数据；
+* Git 对象类型
+	* Git 以一种类似 UNIX 文件系统的方式存储内容，所有内容以 tree object 和 blob object 的形式存储，其中 tree object 对应 UNIX 中的目录项，blob object 则大致对应文件；
+	* blob object 负责存储数据内容，而 tree object 则负责存储维护项目目录的元数据，如项目中的文件分别对应哪个 blob object；
+	* `git cat-file -t` 输出指定 Git 对象的类型；
+	* `master^{tree}` 语法表示 `master` 分支上最新的提交所指向的 tree object；
+* Git 根据某一时刻暂存区的状态创建并记录一个对应的 tree object；
+	* `git update-index` 为文件创建暂存区；
+	* `git write-tree` 将暂存区写入一个 tree object；
+* 提交对象
+	* 提交对象的格式
+		* 一个顶层树对象，代表当前项目快照；
+		* 可能存在的父提交
+		* 之后是作者/提交者信息（依据你的 `user.name` 和 `user.email` 配置来设定，外加一个时间戳）；
+		* 留空一行，最后是提交注释；
+	* `git commit-tree` 用于为一个 tree object 创建一个提交对象；
+* Git 对象的存储过程
+	* 根据对象类型构造头部信息，如一个内容长度为16的 blob object，其 header 为 "blob 16\0"（以空字节为结尾）；
+	* 将头部信息与原始数据拼接起来，计算出这条新内容的 SHA-1 校验和；
+	* 确定写入文件的路径，Git 对象将写入为 `.git/objects` 目录下的文件，以 SHA-1 值的前两个字符作为子目录名，剩余字符作为子目录内的文件名；
+	* 使用 zlib 压缩内容，将其写入磁盘；
+* Git 引用的本质就是存放于 `.git/refs` 目录中的文件，文件名即引用名，文件存储的 SHA-1 值即引用的提交；
+	* `git update-ref <REF> <SHA-1>` 用于更新引用；
+* `HEAD` 文件通常是一个指向当前所在分支的符号引用，如当前所在分支为 `master` 时，`HEAD` 文件的内容为 `ref: refs/heads/master` ；当 `checkout` 到某一个提交、标签等时，`HEAD` 文件将直接包含该 Git 对象的 SHA-1 值，即所谓的**分离 `HEAD` 状态**；
+	* `git symbolic-ref` 可用于查看和更新 `HEAD` 引用对应的值；
+* 标签对象
+	* 轻量标签本质上就是一个指向某个提交对象的引用，因此可以简单使用 `git update-ref refs/tags/v1.0 <SHA-1>` 来创建一个轻量标签；
+	* 附注标签则是一个标签对象，标签对象非常类似于一个提交对象——它包含一个标签创建者信息、一个日期、一段注释信息，以及一个指针。 主要的区别在于，标签对象通常指向一个提交对象，而不是一个树对象。
+	* 标签对象**并不一定**指向某个提交对象，可以对任意类型的 Git 对象打标签。例如，可以将 GPG 公钥添加为一个 blob object，然后为这个 blob object 打标签；
+* 远程引用将存储在 `.git/refs/remotes` 目录下，其中如 `origin` 远程仓库的远程分支引用将被存放在 `.git/refs/remotes/origin` 下；分支将存放在 `.git/refs/heads` 目录下。远程引用和分支最主要的区别在于远程引用是只读的；
+* packfile
+	* 最初 Git 将为文件的每个版本单独生成一个 blob object，称为松散对象格式；随着提交增多，松散的 blob object 将占用大量磁盘空间；
+	* `git gc` 或向远程仓库推送时，Git 将多个松散的 blob object 打包成一个 packfile，同时删去未被任何对象引用的 blob object；
+	* 在一个 packfile 中仅保留一份该文件的完整版本，和其他版本的差异信息；其中，文件的最新版本以完整形式存储，而较老版本则以差异方式保存，因为大部分情况下需要快速访问文件的最新版本；
+* 引用规范
+	* 用于指导 `git fetch` 和 `git push` 的行为；`git fetch` 后的参数即一个引用规范，同时 `.git/config` 中的远程仓库一节（如 `[remote "origin"]`）中的 `fetch` 字段指定了 `git fetch` 默认使用的引用规范；
+	* 引用规范的格式由一个可选的 `+` 号和 `<src>:<dst>` 组成，其中 `<src>` 代表远程仓库的引用的模式，`<dst>` 是本地跟踪的远程引用的位置，`+` 号代表即使不能 fast-forward 也要强制更新引用；
+	* `fetch = +refs/heads/master:refs/remotes/origin/master` 可指定 `git fetch` 只拉取 `master` 分支；
+* `git gc` 还会将多个引用打包到一个文件中，通常为 `.git/packed-refs`；当引用更新时，Git 不会修改这个文件，而是再向 `.git/refs/heads` 创建新文件，在 Git 查找引用对应的 SHA-1 时，也会首先在 `.git/refs/heads` 中查找；因此当在 `.git/refs` 中找不到某个引用时，可以在 `.git/packed-refs` 中查找；
+* 查找丢失的提交，通常因为强制删除分支、hard reset 分支等
+	* 通过 `git reflog` 或 `git log -g` 查找 `HEAD` 引用的变更日志，从中查找丢失的提交；
+	* 丢失提交不在引用日志时，通过 `git fsck --full` 查找所有未被任何对象引用的提交；
+* [移除意外提交的大文件](https://git-scm.com/book/zh/v2/Git-%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86-%E7%BB%B4%E6%8A%A4%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%81%A2%E5%A4%8D)；
+* [也许有用的 Git 环境变量](https://git-scm.com/book/zh/v2/Git-%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86-%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F)；
