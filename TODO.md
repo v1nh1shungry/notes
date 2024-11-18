@@ -3,6 +3,7 @@
 * DDIA
 * 大规模分布式
 * 股市进阶之道
+* perfbook
 
 # Blogs
 

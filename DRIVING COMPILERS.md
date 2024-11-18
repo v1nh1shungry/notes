@@ -53,3 +53,45 @@ $ readelf -h main | grep Entry
 $ nm main | grep 1080
 0000000000001080 T _start
 ```
+
+# 代码段
+
+* `readelf -S -W` 可查看各个代码段的信息；
+* `-ffunction-sections` 和 `-fdata-sections` 编译器可为每个符号生成一个代码段，从而使链接器只挑选有用的代码段从而减小可执行文件的大小；
+
+# 符号
+
+* 导出符号和导入符号列表位于 ELF 的 `.symtab` 段，该段又引用了 `.strtab` 段中的字符串；
+* `nm` 符号代码
+
+| 代码 | 描述                                                |
+|------|-----------------------------------------------------|
+| A    | A global, absolute symbol.                          |
+| B    | A global "bss" (uninitialized data) symbol.         |
+| C    | A "common" symbol, representing uninitialized data. |
+| D    | A global symbol naming initialized data.            |
+| N    | A debugger symbol.                                  |
+| R    | A read-only data symbol.                            |
+| T    | A global text symbol.                               |
+| U    | An undefined symbol.                                |
+| V    | A weak object.                                      |
+| W    | A weak reference.                                   |
+| a    | A local absolute symbol.                            |
+| b    | A local "bss" (uninitialized data) symbol.          |
+| d    | A local data symbol.                                |
+| r    | A local read-only data symbol.                      |
+| t    | A local text symbol.                                |
+| v    | A weak object that is undefined.                    |
+| w    | A weak symbol that is undefined.                    |
+| ?    | None of the above.                                  |
+* 强弱符号的概念仅在编译器中存在，C/C++ 标准中不存在符号强弱的描述；
+	* 添加 `__attribute__((weak))` 属性可标记一个符号为弱符号；
+	* glibc 中有许多声明为弱符号的函数，以便用户 hook；
+* 将用户自定义的 libc 函数放入动态库中，使用 `LD_PRELOAD=<LIB> <PROGRAM>` 来使程序加载用户自定义的 libc 函数；
+* 编译器通过弱符号来实现 C++ 中 inline 的作用，即被 inline 标记的函数可存在于多个编译单元中；
+* 当多个同名符号存在时，优先选择强符号；只有弱符号时，选择任意一个，所有引用此符号的地方将都重定位至此，即便多个弱符号的定义不相同；
+
+# LTO
+
+* 为实现 LTO ，gcc 将生成一个 fat object，它不仅包含 `.obj` 应有的内容，还包含 gcc 的 IR；如此，即便链接器不支持 LTO，程序仍将正常链接；
+* clang 不生成 object，而是直接将 LLVM IR 存入 `.o` 文件以伪装成一个 object；如果链接器不支持 LTO，程序将无法链接；
