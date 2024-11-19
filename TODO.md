@@ -9,7 +9,6 @@
 
 * https://ibm.com/topics
 * https://github.com/shengcaishizhan/kkndme_tianya
-* [DRIVING COMPILERS](https://fabiensanglard.net/dc/index.php)
 * [Ghost in the shell](https://vermaden.wordpress.com/ghost-in-the-shell/)
 
 # Videos

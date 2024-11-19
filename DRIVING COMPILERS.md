@@ -54,10 +54,13 @@ $ nm main | grep 1080
 0000000000001080 T _start
 ```
 
-# 代码段
+# section & segment
 
-* `readelf -S -W` 可查看各个代码段的信息；
-* `-ffunction-sections` 和 `-fdata-sections` 编译器可为每个符号生成一个代码段，从而使链接器只挑选有用的代码段从而减小可执行文件的大小；
+* `readelf -S -W` 可查看各个 section 的信息；`readelf -l` 可查看各个 segment 的信息；
+* 在 linking view 中，ELF 的内容以 section 的形式组织，主要提供给链接器使用；而在 execution view 中，ELF 的内容则以 segment 形式组织，主要提供给加载器使用；
+* section 和 segment 之间存在映射关系，通常多个 section 被映射到一个 segment 中；
+* `-ffunction-sections` 和 `-fdata-sections` 编译器可为每个符号生成一个 section，从而使链接器只挑选有用的 section 从而减小可执行文件的大小；同时需要向链接器传入参数 `--gc-sections` 和 `--as-needed`；
+* 存放指令的 `.text` 和存放只读数据的 `.rodata` 通常被划分到同一组中，以减少 `mmap` 的调用；debug segment 没有被标记为 `LOAD`，将不会被映射到内存，而是根据需要再进行查询；DYNAMIC segment 则包含了动态库和可重定位符号的信息；
 
 # 符号
 
@@ -95,3 +98,26 @@ $ nm main | grep 1080
 
 * 为实现 LTO ，gcc 将生成一个 fat object，它不仅包含 `.obj` 应有的内容，还包含 gcc 的 IR；如此，即便链接器不支持 LTO，程序仍将正常链接；
 * clang 不生成 object，而是直接将 LLVM IR 存入 `.o` 文件以伪装成一个 object；如果链接器不支持 LTO，程序将无法链接；
+
+# 链接器
+
+* 静态库 `.a` 只是可重定位的 `.o` 的打包成一个文件的集合；
+	* `ar -rv <LIB> <OBJ>...` 将若干个 `.o` 文件打包成一个静态库；
+	* `ranlib` 命令用于构建索引来加快链接速度，现在 `ar` 默认会构建索引；
+* gold 和微软的 LD.EXE 能够进行增量链接优化，即重用之前的链接操作的工作，但需要传入额外的链接参数以启用；
+* `libc.so` 并不是一个 ELF，而是一个 ASCII 文本文件，是一个链接器脚本；
+* 链接静态库时，由于静态库只是简单的多个 `.o` 文件的归档，这些 `.o` 的内容将全部包含在最终生成的 ELF 中；
+* 链接动态库时，链接器查找动态库中的符号，但不将它们合入最终的 ELF 中，而是为 ELF 生成 dynsym section，其中列出了所有需要在运行时查找的符号名称，以及 `.dynmaic` section，其中列出了所有动态库的名称；
+* `readelf -s` 可查看 ELF 的导入符号和导出符号，导入的符号以动态库的名称作为后缀；
+* 程序真正开始执行的入口并不是 `main` 函数，而是负责初始化的程序 `Scrt1.s` 中的 `start` 函数，它负责将堆栈初始化、准备程序参数等工作，当一切初始化完毕后，才调用 `main` 函数执行；生成可执行文件时，链接器将自动链接 `Scrt1.s` ，因此，当生成可执行文件缺少 `main` 函数时，将报 `_start` 链接错误；`Scrt1.s` 有时也被命名为 `crt0`，其中的 `crt` 取自 C RunTime；
+* 链接器在链接时**不会**检查导入符号和导出符号的类型是否匹配；
+* 链接器脚本可控制链接器的输出，它能控制程序的各个 section 应该在输出文件中的哪个位置，以及加载器应该将它们映射到内存的哪个位置；
+	* `ld --verbose` 可查看默认的链接器脚本；
+
+# 加载器
+
+* 加载器负责将 segment 映射到内存上，加载程序依赖的动态库，解析动态符号，并将 CPU 指向 `_start` 地址；
+* Linux 通过读取 `.interp` section 中的值来查找加载器，可使用 `file` 命令查看；
+* `ldd` 命令可查看 ELF 依赖的动态库列表及其将被搜索的路径；`ldd` 并不是一个 ELF，而是一个调用 `ld` 的脚本，可通过 `LD_TRACE_LOADED_OBJECTS=1 ld` 简单模拟；
+* 当查看交叉编译的 ELF 时，`ldd` 将可能失败，因为交叉编译链接到的库并非本机的库，可通过 `readelf -d <PROGRAM> | grep 'NEEDED'` 查看；
+* 用于加载 `.so` 的加载器并不一定与加载可执行程序的加载器相同，因此所有 `.so` 都硬编码了加载器的路径；
