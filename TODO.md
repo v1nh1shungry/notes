@@ -10,6 +10,7 @@
 * https://ibm.com/topics
 * https://github.com/shengcaishizhan/kkndme_tianya
 * [Ghost in the shell](https://vermaden.wordpress.com/ghost-in-the-shell/)
+* [C++ Memory Safety: Safe Pointer](https://cpp-rendering.io/c-memory-safety-borrow-checker-safe-pointer/)
 
 # Videos
 
